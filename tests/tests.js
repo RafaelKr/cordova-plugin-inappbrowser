@@ -149,6 +149,19 @@ exports.defineAutoTests = function () {
                 done();
             });
         });
+
+        it("inappbrowser.spec.7 should support options passed as string", function () {
+            iabInstance = cordova.InAppBrowser.open(url, '_blank', 'location=yes,hidden=no');
+            expect(iabInstance).toBeDefined();
+        });
+
+        it("inappbrowser.spec.8 should support options passed as object", function () {
+            iabInstance = cordova.InAppBrowser.open(url, '_blank', {
+              location: true,
+              hidden: false
+            });
+            expect(iabInstance).toBeDefined();
+        });
     });
 };
 
@@ -467,7 +480,7 @@ exports.defineManualTests = function (contentEl, createActionButton) {
         '<p/> <div id="openHardwareBackYes"></div>' +
         'Expected result: hardwareback=yes pressing back button should navigate backwards in history then close InAppBrowser' +
         '<p/> <div id="openHardwareBackNo"></div>' +
-        'Expected result: hardwareback=no pressing back button should close InAppBrowser regardless history' + 
+        'Expected result: hardwareback=no pressing back button should close InAppBrowser regardless history' +
         '<p/> <div id="openHardwareBackDefaultAfterNo"></div>' +
         'Expected result: consistently open browsers with with the appropriate option: hardwareback=defaults to yes then hardwareback=no then hardwareback=defaults to yes. By default hardwareback is yes so pressing back button should navigate backwards in history then close InAppBrowser';
 

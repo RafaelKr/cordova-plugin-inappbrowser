@@ -67,8 +67,6 @@ import org.json.JSONObject;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.StringTokenizer;
 
 @SuppressLint("SetJavaScriptEnabled")
 public class InAppBrowser extends CordovaPlugin {
@@ -127,7 +125,7 @@ public class InAppBrowser extends CordovaPlugin {
                 t = SELF;
             }
             final String target = t;
-            final HashMap<String, Boolean> features = parseFeature(args.optString(2));
+            final JSONObject features = args.getJSONObject(2);
 
             LOG.d(LOG_TAG, "target = " + target);
 
@@ -193,7 +191,11 @@ public class InAppBrowser extends CordovaPlugin {
                         // load in InAppBrowser
                         else {
                             LOG.d(LOG_TAG, "loading in InAppBrowser");
-                            result = showWebPage(url, features);
+                            try {
+                              result = showWebPage(url, features);
+                            } catch (JSONException ex) {
+                                LOG.d(LOG_TAG, "Should never happen");
+                            }
                         }
                     }
                     // SYSTEM
@@ -204,7 +206,11 @@ public class InAppBrowser extends CordovaPlugin {
                     // BLANK - or anything else
                     else {
                         LOG.d(LOG_TAG, "in blank");
-                        result = showWebPage(url, features);
+                        try {
+                          result = showWebPage(url, features);
+                        } catch (JSONException ex) {
+                            LOG.d(LOG_TAG, "Should never happen");
+                        }
                     }
 
                     PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, result);
@@ -361,31 +367,6 @@ public class InAppBrowser extends CordovaPlugin {
     }
 
     /**
-     * Put the list of features into a hash map
-     *
-     * @param optString
-     * @return
-     */
-    private HashMap<String, Boolean> parseFeature(String optString) {
-        if (optString.equals(NULL)) {
-            return null;
-        } else {
-            HashMap<String, Boolean> map = new HashMap<String, Boolean>();
-            StringTokenizer features = new StringTokenizer(optString, ",");
-            StringTokenizer option;
-            while(features.hasMoreElements()) {
-                option = new StringTokenizer(features.nextToken(), "=");
-                if (option.hasMoreElements()) {
-                    String key = option.nextToken();
-                    Boolean value = option.nextToken().equals("no") ? Boolean.FALSE : Boolean.TRUE;
-                    map.put(key, value);
-                }
-            }
-            return map;
-        }
-    }
-
-    /**
      * Display a new browser with the specified URL.
      *
      * @param url the url to load.
@@ -523,7 +504,7 @@ public class InAppBrowser extends CordovaPlugin {
      * @param url the url to load.
      * @param features jsonObject
      */
-    public String showWebPage(final String url, HashMap<String, Boolean> features) {
+    public String showWebPage(final String url, JSONObject features) throws JSONException {
         // Determine if we should hide the location bar.
         showLocationBar = true;
         showZoomControls = true;
@@ -531,44 +512,37 @@ public class InAppBrowser extends CordovaPlugin {
         mediaPlaybackRequiresUserGesture = false;
 
         if (features != null) {
-            Boolean show = features.get(LOCATION);
-            if (show != null) {
-                showLocationBar = show.booleanValue();
+            LOG.d(LOG_TAG, features.toString());
+
+            if (features.has(LOCATION)) {
+                showLocationBar = features.getBoolean(LOCATION);
             }
-            Boolean zoom = features.get(ZOOM);
-            if (zoom != null) {
-                showZoomControls = zoom.booleanValue();
+            if (features.has(ZOOM)) {
+                showZoomControls = features.getBoolean(ZOOM);
             }
-            Boolean hidden = features.get(HIDDEN);
-            if (hidden != null) {
-                openWindowHidden = hidden.booleanValue();
+            if (features.has(HIDDEN)) {
+                openWindowHidden = features.getBoolean(HIDDEN);
             }
-            Boolean hardwareBack = features.get(HARDWARE_BACK_BUTTON);
-            if (hardwareBack != null) {
-                hadwareBackButton = hardwareBack.booleanValue();
+            if (features.has(HARDWARE_BACK_BUTTON)) {
+                hadwareBackButton = features.getBoolean(HARDWARE_BACK_BUTTON);
             } else {
                 hadwareBackButton = DEFAULT_HARDWARE_BACK;
             }
-            Boolean mediaPlayback = features.get(MEDIA_PLAYBACK_REQUIRES_USER_ACTION);
-            if (mediaPlayback != null) {
-                mediaPlaybackRequiresUserGesture = mediaPlayback.booleanValue();
+            if (features.has(MEDIA_PLAYBACK_REQUIRES_USER_ACTION)) {
+                mediaPlaybackRequiresUserGesture = features.getBoolean(MEDIA_PLAYBACK_REQUIRES_USER_ACTION);
             }
-            Boolean cache = features.get(CLEAR_ALL_CACHE);
-            if (cache != null) {
-                clearAllCache = cache.booleanValue();
+            if (features.has(CLEAR_ALL_CACHE)) {
+                clearAllCache = features.getBoolean(CLEAR_ALL_CACHE);
             } else {
-                cache = features.get(CLEAR_SESSION_CACHE);
-                if (cache != null) {
-                    clearSessionCache = cache.booleanValue();
+                if (features.has(CLEAR_SESSION_CACHE)) {
+                    clearSessionCache = features.getBoolean(CLEAR_SESSION_CACHE);
                 }
             }
-            Boolean shouldPause = features.get(SHOULD_PAUSE);
-            if (shouldPause != null) {
-                shouldPauseInAppBrowser = shouldPause.booleanValue();
+            if (features.has(SHOULD_PAUSE)) {
+                shouldPauseInAppBrowser = features.getBoolean(SHOULD_PAUSE);
             }
-            Boolean wideViewPort = features.get(USER_WIDE_VIEW_PORT);
-            if (wideViewPort != null ) {
-		            useWideViewPort = wideViewPort.booleanValue();
+            if (features.has(USER_WIDE_VIEW_PORT)) {
+		            useWideViewPort = features.getBoolean(USER_WIDE_VIEW_PORT);
             }
         }
 

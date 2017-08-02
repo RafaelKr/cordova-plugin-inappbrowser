@@ -40,6 +40,26 @@
        };
     }
 
+    function deserializeWindowFeaturesQueryString(qs) {
+      return qs
+        .split(',')
+        .reduce(function (a, b) {
+          b = b.split('=');
+          b[0] = b[0].trim();
+          b[1] = b[1].trim();
+
+          if(b[1] === 'yes' || b[1] === 'no') {
+            a[b[0]] = b[1] === 'yes' ? true : false;
+
+            return a;
+          }
+
+          a[b[0]] = b[1] || null;
+
+          return a;
+        }, {});
+    }
+
     InAppBrowser.prototype = {
         _eventHandler: function (event) {
             if (event && (event.type in this.channels)) {
@@ -87,7 +107,9 @@
         }
     };
 
-    module.exports = function(strUrl, strWindowName, strWindowFeatures, callbacks) {
+    module.exports = function(strUrl, strWindowName, strOrObjWindowFeatures, callbacks) {
+        var windowFeatures;
+
         // Don't catch calls that write to existing frames (e.g. named iframes).
         if (window.frames && window.frames[strWindowName]) {
             var origOpenFunc = modulemapper.getOriginalSymbol(window, 'open');
@@ -106,9 +128,13 @@
            iab._eventHandler(eventname);
         };
 
-        strWindowFeatures = strWindowFeatures || "";
+        if(typeof strOrObjWindowFeatures === 'string') {
+            windowFeatures = deserializeWindowFeaturesQueryString(strOrObjWindowFeatures);
+        } else {
+            windowFeatures = strOrObjWindowFeatures || {};
+        }
 
-        exec(cb, cb, "InAppBrowser", "open", [strUrl, strWindowName, strWindowFeatures]);
+        exec(cb, cb, "InAppBrowser", "open", [strUrl, strWindowName, windowFeatures]);
         return iab;
     };
 })();
