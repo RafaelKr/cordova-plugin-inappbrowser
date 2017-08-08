@@ -75,6 +75,15 @@
         hide: function (eventname) {
             exec(null, null, "InAppBrowser", "hide", []);
         },
+        resize: function (windowFeatures, cb) {
+            if(cordova.platformId !== 'android') {
+                console.error('Resizing is only supported by Android.');
+                cb('Resizing is only supported by Android.');
+                return;
+            }
+
+            exec(cb, null, "InAppBrowser", "resize", [windowFeatures]);
+        },
         addEventListener: function (eventname,f) {
             if (eventname in this.channels) {
                 this.channels[eventname].subscribe(f);

@@ -157,10 +157,37 @@ exports.defineAutoTests = function () {
 
         it("inappbrowser.spec.8 should support options passed as object", function () {
             iabInstance = cordova.InAppBrowser.open(url, '_blank', {
-              location: true,
-              hidden: false
+                location: false,
+                hidden: false
             });
             expect(iabInstance).toBeDefined();
+        });
+
+        it("inappbrowser.spec.9 should create InAppBrowser with specified size", function (done) {
+            // invalid width or height parameters will be ignored, instead the available screen size will be used.
+            iabInstance = cordova.InAppBrowser.open(url, '_blank', {
+                width: window.innerWidth / 2,
+                height: window.innerHeight / 2
+            });
+            expect(iabInstance).toBeDefined();
+            iabInstance.addEventListener('loadstop', done);
+        });
+
+        it("inappbrowser.spec.10 should resize InAppBrowser", function (done) {
+            iabInstance = cordova.InAppBrowser.open(url, '_blank');
+            expect(iabInstance).toBeDefined();
+            iabInstance.addEventListener('loadstop', function () {
+                setTimeout(function () {
+                    iabInstance.resize({
+                        height: 123.456, // decimals will be ignored
+                        width: 'asdf' // invalid width will be ignored, full width will be used
+                    }, function () {
+                        setTimeout(function () {
+                            done();
+                        }, 500)
+                    });
+                }, 500);
+            });
         });
     });
 };

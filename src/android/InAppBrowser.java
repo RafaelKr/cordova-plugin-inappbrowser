@@ -89,8 +89,11 @@ public class InAppBrowser extends CordovaPlugin {
     private static final String SHOULD_PAUSE = "shouldPauseOnSuspend";
     private static final Boolean DEFAULT_HARDWARE_BACK = true;
     private static final String USER_WIDE_VIEW_PORT = "useWideViewPort";
+    private static final String WINDOW_WIDTH = "width";
+    private static final String WINDOW_HEIGHT = "height";
 
     private InAppBrowserDialog dialog;
+    private InAppBrowserDownloads downloads;
     private WebView inAppWebView;
     private EditText edittext;
     private CallbackContext callbackContext;
@@ -103,6 +106,8 @@ public class InAppBrowser extends CordovaPlugin {
     private boolean mediaPlaybackRequiresUserGesture = false;
     private boolean shouldPauseInAppBrowser = false;
     private boolean useWideViewPort = true;
+    private int windowWidth = WindowManager.LayoutParams.MATCH_PARENT;
+    private int windowHeight = WindowManager.LayoutParams.MATCH_PARENT;
     private ValueCallback<Uri> mUploadCallback;
     private ValueCallback<Uri[]> mUploadCallbackLollipop;
     private final static int FILECHOOSER_REQUESTCODE = 1;
@@ -192,7 +197,7 @@ public class InAppBrowser extends CordovaPlugin {
                         else {
                             LOG.d(LOG_TAG, "loading in InAppBrowser");
                             try {
-                              result = showWebPage(url, features);
+                                result = showWebPage(url, features);
                             } catch (JSONException ex) {
                                 LOG.d(LOG_TAG, "Should never happen");
                             }
@@ -207,7 +212,7 @@ public class InAppBrowser extends CordovaPlugin {
                     else {
                         LOG.d(LOG_TAG, "in blank");
                         try {
-                          result = showWebPage(url, features);
+                            result = showWebPage(url, features);
                         } catch (JSONException ex) {
                             LOG.d(LOG_TAG, "Should never happen");
                         }
@@ -277,6 +282,44 @@ public class InAppBrowser extends CordovaPlugin {
             PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
             pluginResult.setKeepCallback(true);
             this.callbackContext.sendPluginResult(pluginResult);
+        }
+        else if (action.equals("resize")) {
+            final JSONObject features = args.getJSONObject(0);
+
+            windowWidth = WindowManager.LayoutParams.MATCH_PARENT;
+            windowHeight = WindowManager.LayoutParams.MATCH_PARENT;
+
+            if (features.has(WINDOW_WIDTH)) {
+                try {
+                  windowWidth = dpToPixels(features.getInt(WINDOW_WIDTH));
+                } catch(JSONException ex) {
+                  LOG.d(LOG_TAG, "invalid width parameter");
+                }
+            }
+            if (features.has(WINDOW_HEIGHT)) {
+                try {
+                  windowHeight = dpToPixels(features.getInt(WINDOW_HEIGHT)) + getStatusBarHeight();
+                } catch(JSONException ex) {
+                  LOG.d(LOG_TAG, "invalid height parameter");
+                }
+            }
+
+            this.cordova.getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
+                    lp.copyFrom(dialog.getWindow().getAttributes());
+
+                    lp.width = windowWidth;
+                    lp.height = windowHeight;
+
+                    dialog.getWindow().setAttributes(lp);
+
+                    PluginResult pluginResult = new PluginResult(PluginResult.Status.OK);
+                    pluginResult.setKeepCallback(true);
+                    callbackContext.sendPluginResult(pluginResult);
+                }
+            });
         }
         else {
             return false;
@@ -499,6 +542,20 @@ public class InAppBrowser extends CordovaPlugin {
     }
 
     /**
+     * Convert our DIP units to Pixels
+     *
+     * @return int
+     */
+    public int dpToPixels(int dipValue) {
+        int value = (int) TypedValue.applyDimension( TypedValue.COMPLEX_UNIT_DIP,
+                                                    (float) dipValue,
+                                                    cordova.getActivity().getResources().getDisplayMetrics()
+        );
+
+        return value;
+    }
+
+    /**
      * Display a new browser with the specified URL.
      *
      * @param url the url to load.
@@ -510,6 +567,8 @@ public class InAppBrowser extends CordovaPlugin {
         showZoomControls = true;
         openWindowHidden = false;
         mediaPlaybackRequiresUserGesture = false;
+        windowWidth = WindowManager.LayoutParams.MATCH_PARENT;
+        windowHeight = WindowManager.LayoutParams.MATCH_PARENT;
 
         if (features != null) {
             LOG.d(LOG_TAG, features.toString());
@@ -544,26 +603,26 @@ public class InAppBrowser extends CordovaPlugin {
             if (features.has(USER_WIDE_VIEW_PORT)) {
 		            useWideViewPort = features.getBoolean(USER_WIDE_VIEW_PORT);
             }
+            if (features.has(WINDOW_WIDTH)) {
+                try {
+                  windowWidth = dpToPixels(features.getInt(WINDOW_WIDTH));
+                } catch(JSONException ex) {
+                  LOG.d(LOG_TAG, "invalid width parameter");
+                }
+            }
+            if (features.has(WINDOW_HEIGHT)) {
+                try {
+                  windowHeight = dpToPixels(features.getInt(WINDOW_HEIGHT)) + getStatusBarHeight();
+                } catch(JSONException ex) {
+                  LOG.d(LOG_TAG, "invalid height parameter");
+                }
+            }
         }
 
         final CordovaWebView thatWebView = this.webView;
 
         // Create dialog in new thread
         Runnable runnable = new Runnable() {
-            /**
-             * Convert our DIP units to Pixels
-             *
-             * @return int
-             */
-            private int dpToPixels(int dipValue) {
-                int value = (int) TypedValue.applyDimension( TypedValue.COMPLEX_UNIT_DIP,
-                                                            (float) dipValue,
-                                                            cordova.getActivity().getResources().getDisplayMetrics()
-                );
-
-                return value;
-            }
-
             @SuppressLint("NewApi")
             public void run() {
 
@@ -587,8 +646,8 @@ public class InAppBrowser extends CordovaPlugin {
                 RelativeLayout toolbar = new RelativeLayout(cordova.getActivity());
                 //Please, no more black!
                 toolbar.setBackgroundColor(android.graphics.Color.LTGRAY);
-                toolbar.setLayoutParams(new RelativeLayout.LayoutParams(LayoutParams.MATCH_PARENT, this.dpToPixels(44)));
-                toolbar.setPadding(this.dpToPixels(2), this.dpToPixels(2), this.dpToPixels(2), this.dpToPixels(2));
+                toolbar.setLayoutParams(new RelativeLayout.LayoutParams(LayoutParams.MATCH_PARENT, dpToPixels(44)));
+                toolbar.setPadding(dpToPixels(2), dpToPixels(2), dpToPixels(2), dpToPixels(2));
                 toolbar.setHorizontalGravity(Gravity.LEFT);
                 toolbar.setVerticalGravity(Gravity.TOP);
 
@@ -615,7 +674,7 @@ public class InAppBrowser extends CordovaPlugin {
                     back.setBackgroundDrawable(null);
                 back.setImageDrawable(backIcon);
                 back.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                back.setPadding(0, this.dpToPixels(10), 0, this.dpToPixels(10));
+                back.setPadding(0, dpToPixels(10), 0, dpToPixels(10));
                 if (Build.VERSION.SDK_INT >= 16)
                     back.getAdjustViewBounds();
 
@@ -640,7 +699,7 @@ public class InAppBrowser extends CordovaPlugin {
                     forward.setBackgroundDrawable(null);
                 forward.setImageDrawable(fwdIcon);
                 forward.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                forward.setPadding(0, this.dpToPixels(10), 0, this.dpToPixels(10));
+                forward.setPadding(0, dpToPixels(10), 0, dpToPixels(10));
                 if (Build.VERSION.SDK_INT >= 16)
                     forward.getAdjustViewBounds();
 
@@ -688,7 +747,7 @@ public class InAppBrowser extends CordovaPlugin {
                     close.setBackgroundDrawable(null);
                 close.setImageDrawable(closeIcon);
                 close.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                back.setPadding(0, this.dpToPixels(10), 0, this.dpToPixels(10));
+                back.setPadding(0, dpToPixels(10), 0, dpToPixels(10));
                 if (Build.VERSION.SDK_INT >= 16)
                     close.getAdjustViewBounds();
 
@@ -810,21 +869,49 @@ public class InAppBrowser extends CordovaPlugin {
 
                 WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
                 lp.copyFrom(dialog.getWindow().getAttributes());
-                lp.width = WindowManager.LayoutParams.MATCH_PARENT;
-                lp.height = WindowManager.LayoutParams.MATCH_PARENT;
+                lp.gravity = Gravity.TOP | Gravity.LEFT;
+                lp.width = windowWidth;
+                lp.height = windowHeight;
+
+                Window inAppBrowserDialogWindow = dialog.getWindow();
+                inAppBrowserDialogWindow.setAttributes(lp);
+                inAppBrowserDialogWindow.setFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL, WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL);
 
                 dialog.setContentView(main);
                 dialog.show();
-                dialog.getWindow().setAttributes(lp);
+
                 // the goal of openhidden is to load the url and not display it
                 // Show() needs to be called to cause the URL to be loaded
                 if(openWindowHidden) {
                     dialog.hide();
                 }
+
+                if (InAppBrowser.this.downloads == null) {
+                    InAppBrowser.this.downloads = new InAppBrowserDownloads(InAppBrowser.this);
+                }
+
+                inAppWebView.setDownloadListener(
+                    InAppBrowser.this.downloads
+                );
             }
         };
         this.cordova.getActivity().runOnUiThread(runnable);
         return "";
+    }
+
+    public int getStatusBarHeight() {
+        int result = 0;
+        int resourceId = cordova.getActivity().getResources().getIdentifier("status_bar_height", "dimen", "android");
+        if (resourceId > 0) {
+            result = cordova.getActivity().getResources().getDimensionPixelSize(resourceId);
+        }
+        return result;
+    }
+
+    public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults) throws JSONException {
+        if (InAppBrowser.this.downloads != null) {
+            InAppBrowser.this.downloads.onRequestPermissionResult(requestCode, permissions, grantResults);
+        }
     }
 
     /**
