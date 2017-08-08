@@ -17,133 +17,169 @@
  * specific language governing permissions and limitations
  * under the License.
  *
-*/
+ */
 
 (function() {
-    // special patch to correctly work on Ripple emulator (CB-9760)
-    if (window.parent && !!window.parent.ripple) { // https://gist.github.com/triceam/4658021
-        module.exports = window.open.bind(window); // fallback to default window.open behaviour
-        return;
+  // special patch to correctly work on Ripple emulator (CB-9760)
+  if(window.parent && !!window.parent.ripple) { // https://gist.github.com/triceam/4658021
+    module.exports = window.open.bind(window); // fallback to default window.open behaviour
+    return;
+  }
+
+  var exec = require('cordova/exec');
+  var channel = require('cordova/channel');
+  var modulemapper = require('cordova/modulemapper');
+  var urlutil = require('cordova/urlutil');
+
+  function InAppBrowser() {
+    this.channels = {
+      'loadstart': channel.create('loadstart'),
+      'loadstop': channel.create('loadstop'),
+      'loaderror': channel.create('loaderror'),
+      'exit': channel.create('exit')
+    };
+  }
+
+  function serializeWindowFeatureObject(obj) {
+    var qs = '';
+
+    for(var key in obj) {
+      var value = obj[key];
+
+      if(typeof value === 'boolean') {
+        value = value ? 'yes' : 'no';
+      }
+
+      qs += key + '=' + value + ',';
     }
 
-    var exec = require('cordova/exec');
-    var channel = require('cordova/channel');
-    var modulemapper = require('cordova/modulemapper');
-    var urlutil = require('cordova/urlutil');
+    return qs.slice(0, -1);
+  }
 
-    function InAppBrowser() {
-       this.channels = {
-            'loadstart': channel.create('loadstart'),
-            'loadstop' : channel.create('loadstop'),
-            'loaderror' : channel.create('loaderror'),
-            'exit' : channel.create('exit')
-       };
+  function deserializeWindowFeaturesQueryString(qs) {
+    if(qs.length === 0) {
+      return {};
     }
 
-    function deserializeWindowFeaturesQueryString(qs) {
-      return qs
-        .split(',')
-        .reduce(function (a, b) {
-          b = b.split('=');
-          b[0] = b[0].trim();
-          b[1] = b[1].trim();
+    return qs
+      .split(',')
+      .reduce(function(a, b) {
+        b = b.split('=');
+        b[0] = b[0].trim();
+        b[1] = b[1].trim();
 
-          if(b[1] === 'yes' || b[1] === 'no') {
-            a[b[0]] = b[1] === 'yes' ? true : false;
-
-            return a;
-          }
-
-          a[b[0]] = b[1] || null;
+        if(b[1] === 'yes' || b[1] === 'no') {
+          a[b[0]] = b[1] === 'yes' ? true : false;
 
           return a;
-        }, {});
+        }
+
+        a[b[0]] = b[1] || null;
+
+        return a;
+      }, {});
+  }
+
+  InAppBrowser.prototype = {
+    _eventHandler: function(event) {
+      if(event && (event.type in this.channels)) {
+        this.channels[event.type].fire(event);
+      }
+    },
+    close: function() {
+      exec(null, null, 'InAppBrowser', 'close', []);
+    },
+    show: function() {
+      exec(null, null, 'InAppBrowser', 'show', []);
+    },
+    hide: function() {
+      exec(null, null, 'InAppBrowser', 'hide', []);
+    },
+    resize: function(windowFeatures, cb) {
+      if(cordova.platformId !== 'android') {
+        console.error('Resizing is only supported by Android.');
+        cb('Resizing is only supported by Android.');
+        return;
+      }
+
+      exec(cb, null, 'InAppBrowser', 'resize', [windowFeatures]);
+    },
+    addEventListener: function(eventname, f) {
+      if(eventname in this.channels) {
+        this.channels[eventname].subscribe(f);
+      }
+    },
+    removeEventListener: function(eventname, f) {
+      if(eventname in this.channels) {
+        this.channels[eventname].unsubscribe(f);
+      }
+    },
+
+    executeScript: function(injectDetails, cb) {
+      if(injectDetails.code) {
+        exec(cb, null, 'InAppBrowser', 'injectScriptCode', [injectDetails.code, !!cb]);
+      } else if(injectDetails.file) {
+        exec(cb, null, 'InAppBrowser', 'injectScriptFile', [injectDetails.file, !!cb]);
+      } else {
+        throw new Error('executeScript requires exactly one of code or file to be specified');
+      }
+    },
+
+    insertCSS: function(injectDetails, cb) {
+      if(injectDetails.code) {
+        exec(cb, null, 'InAppBrowser', 'injectStyleCode', [injectDetails.code, !!cb]);
+      } else if(injectDetails.file) {
+        exec(cb, null, 'InAppBrowser', 'injectStyleFile', [injectDetails.file, !!cb]);
+      } else {
+        throw new Error('insertCSS requires exactly one of code or file to be specified');
+      }
+    }
+  };
+
+  /**
+   * create the InAppBrowser
+   * @param  {string} url                                    - The URL to load. Call encodeURI() on this if the URL contains Unicode characters.
+   * @param  {string} [target='_self']                       - The target in which to load the URL.
+   * @param  {string|Object} [windowFeatures='location=yes'] - Options for the InAppBrowser.
+   * @param  {Object} [callbacks]                            - eventlisteners for loadstart, loadstop, loaderror and exit.
+   * @return {Object}                                        - returns the InAppBrowser object with it's methods.
+   */
+  module.exports = function(url, target, windowFeatures, callbacks) {
+    windowFeatures = windowFeatures || '';
+
+    // Don't catch calls that write to existing frames (e.g. named iframes).
+    if(window.frames && window.frames[target]) {
+      var origOpenFunc = modulemapper.getOriginalSymbol(window, 'open');
+      return origOpenFunc.apply(window, arguments);
     }
 
-    InAppBrowser.prototype = {
-        _eventHandler: function (event) {
-            if (event && (event.type in this.channels)) {
-                this.channels[event.type].fire(event);
-            }
-        },
-        close: function (eventname) {
-            exec(null, null, "InAppBrowser", "close", []);
-        },
-        show: function (eventname) {
-            exec(null, null, "InAppBrowser", "show", []);
-        },
-        hide: function (eventname) {
-            exec(null, null, "InAppBrowser", "hide", []);
-        },
-        resize: function (windowFeatures, cb) {
-            if(cordova.platformId !== 'android') {
-                console.error('Resizing is only supported by Android.');
-                cb('Resizing is only supported by Android.');
-                return;
-            }
+    url = urlutil.makeAbsolute(url);
+    var iab = new InAppBrowser();
 
-            exec(cb, null, "InAppBrowser", "resize", [windowFeatures]);
-        },
-        addEventListener: function (eventname,f) {
-            if (eventname in this.channels) {
-                this.channels[eventname].subscribe(f);
-            }
-        },
-        removeEventListener: function(eventname, f) {
-            if (eventname in this.channels) {
-                this.channels[eventname].unsubscribe(f);
-            }
-        },
+    callbacks = callbacks || {};
+    for(var callbackName in callbacks) {
+      iab.addEventListener(callbackName, callbacks[callbackName]);
+    }
 
-        executeScript: function(injectDetails, cb) {
-            if (injectDetails.code) {
-                exec(cb, null, "InAppBrowser", "injectScriptCode", [injectDetails.code, !!cb]);
-            } else if (injectDetails.file) {
-                exec(cb, null, "InAppBrowser", "injectScriptFile", [injectDetails.file, !!cb]);
-            } else {
-                throw new Error('executeScript requires exactly one of code or file to be specified');
-            }
-        },
-
-        insertCSS: function(injectDetails, cb) {
-            if (injectDetails.code) {
-                exec(cb, null, "InAppBrowser", "injectStyleCode", [injectDetails.code, !!cb]);
-            } else if (injectDetails.file) {
-                exec(cb, null, "InAppBrowser", "injectStyleFile", [injectDetails.file, !!cb]);
-            } else {
-                throw new Error('insertCSS requires exactly one of code or file to be specified');
-            }
-        }
+    var cb = function(eventname) {
+      iab._eventHandler(eventname);
     };
 
-    module.exports = function(strUrl, strWindowName, strOrObjWindowFeatures, callbacks) {
-        var windowFeatures;
+    // android needs an object, other platforms need a query string
+    if(typeof windowFeatures === 'string') {
+      if(cordova.platformId === 'android') {
+        windowFeatures = deserializeWindowFeaturesQueryString(windowFeatures);
+      }
+    // if windowFeatures is an object
+    } else if(!!windowFeatures && windowFeatures.constructor === Object) {
+      if(cordova.platformId !== 'android') {
+        windowFeatures = serializeWindowFeatureObject(windowFeatures);
+      }
+    } else {
+      throw new Error('invalid options parameter');
+    }
 
-        // Don't catch calls that write to existing frames (e.g. named iframes).
-        if (window.frames && window.frames[strWindowName]) {
-            var origOpenFunc = modulemapper.getOriginalSymbol(window, 'open');
-            return origOpenFunc.apply(window, arguments);
-        }
-
-        strUrl = urlutil.makeAbsolute(strUrl);
-        var iab = new InAppBrowser();
-
-        callbacks = callbacks || {};
-        for (var callbackName in callbacks) {
-            iab.addEventListener(callbackName, callbacks[callbackName]);
-        }
-
-        var cb = function(eventname) {
-           iab._eventHandler(eventname);
-        };
-
-        if(typeof strOrObjWindowFeatures === 'string') {
-            windowFeatures = deserializeWindowFeaturesQueryString(strOrObjWindowFeatures);
-        } else {
-            windowFeatures = strOrObjWindowFeatures || {};
-        }
-
-        exec(cb, cb, "InAppBrowser", "open", [strUrl, strWindowName, windowFeatures]);
-        return iab;
-    };
+    exec(cb, cb, 'InAppBrowser', 'open', [url, target, windowFeatures]);
+    return iab;
+  };
 })();
