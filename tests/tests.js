@@ -179,14 +179,14 @@ exports.defineAutoTests = function () {
             iabInstance.addEventListener('loadstop', function () {
                 setTimeout(function () {
                     iabInstance.resize({
-                        height: 123.456, // decimals will be ignored
+                        height: 123.456, // decimals will be ignored on android
                         width: 'asdf' // invalid width will be ignored, full width will be used
-                    }, function () {
-                        setTimeout(function () {
-                            done();
-                        }, 500)
                     });
-                }, 500);
+
+                    setTimeout(function () {
+                        done();
+                    }, 200);
+                }, 200);
             });
         });
     });

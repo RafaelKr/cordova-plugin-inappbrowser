@@ -33,6 +33,7 @@
 }
 
 @property (nonatomic, retain) CDVInAppBrowserViewController* inAppBrowserViewController;
+@property (nonatomic, retain) UIWindow* mainWindow;
 @property (nonatomic, copy) NSString* callbackId;
 @property (nonatomic, copy) NSRegularExpression *callbackIdPattern;
 
@@ -41,6 +42,7 @@
 - (void)injectScriptCode:(CDVInvokedUrlCommand*)command;
 - (void)show:(CDVInvokedUrlCommand*)command;
 - (void)hide:(CDVInvokedUrlCommand*)command;
+- (void)resize:(CDVInvokedUrlCommand*)command;
 
 @end
 
@@ -64,7 +66,10 @@
 @property (nonatomic, assign) BOOL hidden;
 @property (nonatomic, assign) BOOL disallowoverscroll;
 
-+ (CDVInAppBrowserOptions*)parseOptions:(NSString*)options;
+@property (nonatomic, assign) NSNumber* width;
+@property (nonatomic, assign) NSNumber* height;
+
++ (CDVInAppBrowserOptions*)parseOptions:(NSDictionary*)options;
 
 @end
 
@@ -74,13 +79,13 @@
     NSString* _prevUserAgent;
     NSInteger _userAgentLockToken;
     CDVInAppBrowserOptions *_browserOptions;
-    
+
 #ifdef __CORDOVA_4_0_0
     CDVUIWebViewDelegate* _webViewDelegate;
 #else
     CDVWebViewDelegate* _webViewDelegate;
 #endif
-    
+
 }
 
 @property (nonatomic, strong) IBOutlet UIWebView* webView;
@@ -110,4 +115,3 @@
 @property (nonatomic, weak) id <CDVScreenOrientationDelegate> orientationDelegate;
 
 @end
-

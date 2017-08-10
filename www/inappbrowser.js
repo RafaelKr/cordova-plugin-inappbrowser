@@ -40,6 +40,10 @@
     };
   }
 
+  function isNumeric(n) {
+    return !isNaN(parseFloat(n)) && isFinite(n);
+  }
+
   function serializeWindowFeatureObject(obj) {
     var qs = '';
 
@@ -95,14 +99,18 @@
     hide: function() {
       exec(null, null, 'InAppBrowser', 'hide', []);
     },
-    resize: function(windowFeatures, cb) {
-      if(cordova.platformId !== 'android') {
+    resize: function(size) {
+      if(cordova.platformId !== 'android' && cordova.platformId !== 'ios') {
         console.error('Resizing is only supported by Android.');
-        cb('Resizing is only supported by Android.');
         return;
       }
 
-      exec(cb, null, 'InAppBrowser', 'resize', [windowFeatures]);
+      let windowFeatures = {
+        width: isNumeric(size.width) ? size.width : null,
+        height: isNumeric(size.height) ? size.height : null
+      };
+
+      exec(null, null, 'InAppBrowser', 'resize', [windowFeatures]);
     },
     addEventListener: function(eventname, f) {
       if(eventname in this.channels) {
@@ -167,12 +175,17 @@
 
     // android needs an object, other platforms need a query string
     if(typeof windowFeatures === 'string') {
-      if(cordova.platformId === 'android') {
+      if(cordova.platformId === 'android' || cordova.platformId === 'ios') {
         windowFeatures = deserializeWindowFeaturesQueryString(windowFeatures);
+        windowFeatures.width = isNumeric(windowFeatures.width) ? windowFeatures.width : null;
+        windowFeatures.height = isNumeric(windowFeatures.height) ? windowFeatures.height : null;
       }
     // if windowFeatures is an object
     } else if(!!windowFeatures && windowFeatures.constructor === Object) {
-      if(cordova.platformId !== 'android') {
+      if(cordova.platformId === 'android' || cordova.platformId === 'ios') {
+        windowFeatures.width = isNumeric(windowFeatures.width) ? windowFeatures.width : null;
+        windowFeatures.height = isNumeric(windowFeatures.height) ? windowFeatures.height : null;
+      } else {
         windowFeatures = serializeWindowFeatureObject(windowFeatures);
       }
     } else {
