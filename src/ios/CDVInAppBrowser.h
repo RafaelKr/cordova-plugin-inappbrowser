@@ -33,7 +33,6 @@
 }
 
 @property (nonatomic, retain) CDVInAppBrowserViewController* inAppBrowserViewController;
-@property (nonatomic, retain) UIWindow* mainWindow;
 @property (nonatomic, copy) NSString* callbackId;
 @property (nonatomic, copy) NSRegularExpression *callbackIdPattern;
 
@@ -88,6 +87,7 @@
 
 }
 
+@property (nonatomic, strong) IBOutlet UIWindow* mainWindow;
 @property (nonatomic, strong) IBOutlet UIWebView* webView;
 @property (nonatomic, strong) IBOutlet UIBarButtonItem* closeButton;
 @property (nonatomic, strong) IBOutlet UILabel* addressLabel;

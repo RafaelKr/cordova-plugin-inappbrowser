@@ -70,11 +70,11 @@
 
 - (BOOL) isSystemUrl:(NSURL*)url
 {
-	if ([[url host] isEqualToString:@"itunes.apple.com"]) {
-		return YES;
-	}
+    if ([[url host] isEqualToString:@"itunes.apple.com"]) {
+        return YES;
+    }
 
-	return NO;
+    return NO;
 }
 
 - (void)open:(CDVInvokedUrlCommand*)command
@@ -166,7 +166,7 @@
         [self.inAppBrowserViewController setCloseButtonTitle:browserOptions.closebuttoncaption];
     }
     // Set Presentation Style
-    UIModalPresentationStyle presentationStyle = UIModalPresentationFullScreen; // default
+    UIModalPresentationStyle presentationStyle = UIModalPresentationCurrentContext; // default
     if (browserOptions.presentationstyle != nil) {
         if ([[browserOptions.presentationstyle lowercaseString] isEqualToString:@"pagesheet"]) {
             presentationStyle = UIModalPresentationPageSheet;
@@ -229,7 +229,7 @@
     _previousStatusBarStyle = [UIApplication sharedApplication].statusBarStyle;
 
     __block CDVInAppBrowserNavigationController* nav = [[CDVInAppBrowserNavigationController alloc]
-                                   initWithRootViewController:self.inAppBrowserViewController];
+                                                        initWithRootViewController:self.inAppBrowserViewController];
     nav.orientationDelegate = self.inAppBrowserViewController;
     nav.navigationBarHidden = YES;
     nav.modalPresentationStyle = self.inAppBrowserViewController.modalPresentationStyle;
@@ -238,15 +238,20 @@
 
     // Run later to avoid the "took a long time" log message.
     dispatch_async(dispatch_get_main_queue(), ^{
+        if(weakSelf.inAppBrowserViewController.mainWindow != nil) {
+            [self.inAppBrowserViewController.mainWindow setHidden:NO];
+            return;
+        }
+
         if (weakSelf.inAppBrowserViewController != nil) {
-            CGRect frame = weakSelf.inAppBrowserViewController.view.frame;
+            CGRect bounds = weakSelf.inAppBrowserViewController.view.bounds;
 
-            weakSelf.mainWindow = [[UIWindow alloc] initWithFrame:frame];
+            weakSelf.inAppBrowserViewController.mainWindow = [[UIWindow alloc] initWithFrame:bounds];
             UIViewController *tmpController = [[UIViewController alloc] init];
-            [weakSelf.mainWindow setRootViewController:tmpController];
-            [weakSelf.mainWindow setWindowLevel:UIWindowLevelNormal];
+            [weakSelf.inAppBrowserViewController.mainWindow setRootViewController:tmpController];
+            [weakSelf.inAppBrowserViewController.mainWindow setWindowLevel:UIWindowLevelNormal];
 
-            [weakSelf.mainWindow makeKeyAndVisible];
+            [weakSelf.inAppBrowserViewController.mainWindow makeKeyAndVisible];
             [tmpController presentViewController:nav animated:NO completion:nil];
         }
     });
@@ -271,7 +276,8 @@
     dispatch_async(dispatch_get_main_queue(), ^{
         if (self.inAppBrowserViewController != nil) {
             _previousStatusBarStyle = -1;
-            [self.inAppBrowserViewController.presentingViewController dismissViewControllerAnimated:NO completion:nil];
+//            [self.inAppBrowserViewController.presentingViewController dismissViewControllerAnimated:NO completion:nil];
+            [self.inAppBrowserViewController.mainWindow setHidden:YES];
         }
     });
 }
@@ -286,16 +292,20 @@
     dispatch_async(dispatch_get_main_queue(), ^{
         if (self.inAppBrowserViewController != nil) {
             CDVInAppBrowserOptions* windowFeatures = [CDVInAppBrowserOptions parseOptions:[command.arguments objectAtIndex:0]];
-            CGRect windowFrame = self.mainWindow.frame;
+            CGRect windowBounds = [[UIScreen mainScreen] bounds];
+
+            windowBounds.origin.x = 0;
+            windowBounds.origin.y = 0;
 
             if(windowFeatures.width != nil) {
-                windowFrame.size.width = [windowFeatures.width longLongValue];
-            }
-            if(windowFeatures.height != nil) {
-                windowFrame.size.height = [windowFeatures.height longLongValue];
+                windowBounds.size.width = [windowFeatures.width longLongValue];
             }
 
-            [self.mainWindow setFrame:windowFrame];
+            if(windowFeatures.height != nil) {
+                windowBounds.size.height = [windowFeatures.height longLongValue];
+            }
+
+            [self.inAppBrowserViewController.view setBounds:windowBounds];
         }
     });
 }
@@ -519,7 +529,7 @@
     // Don't recycle the ViewController since it may be consuming a lot of memory.
     // Also - this is required for the PDF/User-Agent bug work-around.
     self.inAppBrowserViewController = nil;
-    self.mainWindow = nil;
+    self.inAppBrowserViewController.mainWindow = nil;
 
     if (IsAtLeastiOSVersion(@"7.0")) {
         if (_previousStatusBarStyle != -1) {
@@ -537,6 +547,7 @@
 @implementation CDVInAppBrowserViewController
 
 @synthesize currentURL;
+@synthesize mainWindow;
 
 - (id)initWithUserAgent:(NSString*)userAgent prevUserAgent:(NSString*)prevUserAgent browserOptions: (CDVInAppBrowserOptions*) browserOptions
 {
@@ -559,24 +570,36 @@
 
 // Prevent crashes on closing windows
 -(void)dealloc {
-   self.webView.delegate = nil;
+    self.webView.delegate = nil;
 }
+
+//- (void) willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
+//{
+//    CGRect mainWindowFrame = self.mainWindow.bounds;
+//
+//    mainWindowFrame.origin.x = 0;
+//    mainWindowFrame.origin.y = 0;
+//
+//    [self.mainWindow setFrame:mainWindowFrame];
+//    NSLog(@"willAnimateRotationToInterfaceOrientation webView.frame: %@", NSStringFromCGRect(self.mainWindow.bounds));
+//}
 
 - (void)createViews
 {
     // We create the views in code for primarily for ease of upgrades and not requiring an external .xib to be included
-    CGRect webViewFrame = self.view.frame;
-    CGRect webViewBounds;
+    CGRect webViewBounds = [[UIScreen mainScreen] bounds];
+
+    webViewBounds.origin.x = 0;
+    webViewBounds.origin.y = 0;
 
     if(_browserOptions.width != nil) {
-        webViewFrame.size.width = [_browserOptions.width longLongValue];
+        webViewBounds.size.width = [_browserOptions.width longLongValue];
     }
     if(_browserOptions.height != nil) {
-        webViewFrame.size.height = [_browserOptions.height longLongValue];
+        webViewBounds.size.height = [_browserOptions.height longLongValue];
     }
 
-    webViewBounds = webViewFrame;
-    [self.view setFrame:webViewFrame];
+    [self.view setBounds:webViewBounds];
 
     BOOL toolbarIsAtBottom = ![_browserOptions.toolbarposition isEqualToString:kInAppBrowserToolbarBarPositionTop];
     webViewBounds.size.height -= _browserOptions.location ? FOOTER_HEIGHT : TOOLBAR_HEIGHT;
@@ -614,7 +637,12 @@
     [self.spinner stopAnimating];
 
     self.closeButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(close)];
-    self.closeButton.enabled = YES;
+
+    if([_browserOptions.closebuttoncaption isEqualToString:@""]) {
+        self.closeButton.enabled = NO;
+    } else {
+        self.closeButton.enabled = YES;
+    }
 
     UIBarButtonItem* flexibleSpaceButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
 
@@ -688,7 +716,6 @@
 }
 
 - (void) setWebViewFrame : (CGRect) frame {
-    NSLog(@"Setting the WebView's frame to %@", NSStringFromCGRect(frame));
     [self.webView setFrame:frame];
 }
 
@@ -698,7 +725,13 @@
     // but, if you want to set this yourself, knock yourself out (we can't set the title for a system Done button, so we have to create a new one)
     self.closeButton = nil;
     self.closeButton = [[UIBarButtonItem alloc] initWithTitle:title style:UIBarButtonItemStyleBordered target:self action:@selector(close)];
-    self.closeButton.enabled = YES;
+
+    if([title isEqualToString:@""]) {
+        self.closeButton.enabled = NO;
+    } else {
+        self.closeButton.enabled = YES;
+    }
+
     self.closeButton.tintColor = [UIColor colorWithRed:60.0 / 255.0 green:136.0 / 255.0 blue:230.0 / 255.0 alpha:1];
 
     NSMutableArray* items = [self.toolbar.items mutableCopy];
@@ -1045,69 +1078,85 @@
     CDVInAppBrowserOptions* obj = [[CDVInAppBrowserOptions alloc] init];
 
     if(options) {
-      if([[options objectForKey:@"location"] boolValue] != obj.location) {
-        obj.location = !obj.location;
-      }
+        if([[options objectForKey:@"location"] boolValue] != obj.location) {
+            obj.location = !obj.location;
+        }
 
-      if([[options objectForKey:@"toolbar"] boolValue] != obj.toolbar) {
-        obj.toolbar = !obj.toolbar;
-      }
+        if([[options objectForKey:@"toolbar"] boolValue] != obj.toolbar) {
+            obj.toolbar = !obj.toolbar;
+        }
 
-      NSString* closebuttoncaption = [options objectForKey:@"closebuttoncaption"];
-      if(closebuttoncaption != nil) {
-        obj.closebuttoncaption = closebuttoncaption;
-      }
+        if([[options allKeys] containsObject:@"closebuttoncaption"]) {
+            if([[options objectForKey:@"closebuttoncaption"] isKindOfClass:[NSString class]]) {
+                obj.closebuttoncaption = [options objectForKey:@"closebuttoncaption"];
+            } else {
+                obj.closebuttoncaption = @"";
+            }
+        }
 
-      if([[options objectForKey:@"toolbarposition"] boolValue] != obj.toolbarposition) {
-        obj.toolbarposition = kInAppBrowserToolbarBarPositionTop;
-      }
+        if([[options objectForKey:@"toolbarposition"] isEqualToString:kInAppBrowserToolbarBarPositionTop]) {
+            obj.toolbarposition = kInAppBrowserToolbarBarPositionTop;
+        }
 
-      if([[options objectForKey:@"clearcache"] boolValue] != obj.clearcache) {
-        obj.clearcache = !obj.clearcache;
-      }
+        if([[options objectForKey:@"clearcache"] boolValue] != obj.clearcache) {
+            obj.clearcache = !obj.clearcache;
+        }
 
-      if([[options objectForKey:@"clearsessioncache"] boolValue] != obj.clearsessioncache) {
-        obj.clearsessioncache = !obj.clearsessioncache;
-      }
+        if([[options objectForKey:@"clearsessioncache"] boolValue] != obj.clearsessioncache) {
+            obj.clearsessioncache = !obj.clearsessioncache;
+        }
 
-      if([[options objectForKey:@"enableviewportscale"] boolValue] != obj.enableviewportscale) {
-        obj.enableviewportscale = !obj.enableviewportscale;
-      }
+        if([[options objectForKey:@"enableviewportscale"] boolValue] != obj.enableviewportscale) {
+            obj.enableviewportscale = !obj.enableviewportscale;
+        }
 
-      if([[options objectForKey:@"mediaplaybackrequiresuseraction"] boolValue] != obj.mediaplaybackrequiresuseraction) {
-        obj.mediaplaybackrequiresuseraction = !obj.mediaplaybackrequiresuseraction;
-      }
+        if([[options objectForKey:@"mediaplaybackrequiresuseraction"] boolValue] != obj.mediaplaybackrequiresuseraction) {
+            obj.mediaplaybackrequiresuseraction = !obj.mediaplaybackrequiresuseraction;
+        }
 
-      if([[options objectForKey:@"allowinlinemediaplayback"] boolValue] != obj.allowinlinemediaplayback) {
-        obj.allowinlinemediaplayback = !obj.allowinlinemediaplayback;
-      }
+        if([[options objectForKey:@"allowinlinemediaplayback"] boolValue] != obj.allowinlinemediaplayback) {
+            obj.allowinlinemediaplayback = !obj.allowinlinemediaplayback;
+        }
 
-      if([[options objectForKey:@"keyboarddisplayrequiresuseraction"] boolValue] != obj.keyboarddisplayrequiresuseraction) {
-        obj.keyboarddisplayrequiresuseraction = !obj.keyboarddisplayrequiresuseraction;
-      }
+        if([[options objectForKey:@"keyboarddisplayrequiresuseraction"] boolValue] != obj.keyboarddisplayrequiresuseraction) {
+            obj.keyboarddisplayrequiresuseraction = !obj.keyboarddisplayrequiresuseraction;
+        }
 
-      if([[options objectForKey:@"suppressesincrementalrendering"] boolValue] != obj.suppressesincrementalrendering) {
-        obj.suppressesincrementalrendering = !obj.suppressesincrementalrendering;
-      }
+        if([[options objectForKey:@"suppressesincrementalrendering"] boolValue] != obj.suppressesincrementalrendering) {
+            obj.suppressesincrementalrendering = !obj.suppressesincrementalrendering;
+        }
 
-      if([[options objectForKey:@"hidden"] boolValue] != obj.hidden) {
-        obj.hidden = !obj.hidden;
-      }
+        if([[options objectForKey:@"hidden"] boolValue] != obj.hidden) {
+            obj.hidden = !obj.hidden;
+        }
 
-      if([[options objectForKey:@"disallowoverscroll"] boolValue] != obj.disallowoverscroll) {
-        obj.disallowoverscroll = !obj.disallowoverscroll;
-      }
+        if([[options objectForKey:@"disallowoverscroll"] boolValue] != obj.disallowoverscroll) {
+            obj.disallowoverscroll = !obj.disallowoverscroll;
+        }
 
-      if([[options objectForKey:@"width"] isKindOfClass:[NSNumber class]]) {
-        obj.width = [options objectForKey:@"width"];
-      }
+        if([self isNumeric:[options objectForKey:@"width"]]) {
+            obj.width = [options objectForKey:@"width"];
+        }
 
-      if([[options objectForKey:@"height"] isKindOfClass:[NSNumber class]]) {
-        obj.height = [options objectForKey:@"height"];
-      }
+        if([self isNumeric:[options objectForKey:@"height"]]) {
+            obj.height = [options objectForKey:@"height"];
+        }
     }
 
     return obj;
+}
+
++ (BOOL) isNumeric: (NSString*)testValue {
+    if([testValue isKindOfClass:[NSNull class]]) {
+        return false;
+    }
+
+    if([testValue isKindOfClass:[NSNumber class]]) {
+        return true;
+    }
+
+    NSScanner *scanner = [NSScanner scannerWithString:testValue];
+    return [scanner scanDouble:NULL]&& [scanner isAtEnd];
 }
 
 @end
