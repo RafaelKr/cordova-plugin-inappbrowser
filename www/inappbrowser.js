@@ -105,7 +105,7 @@
         return;
       }
 
-      let windowFeatures = {
+      var windowFeatures = {
         width: isNumeric(size.width) ? size.width : null,
         height: isNumeric(size.height) ? size.height : null
       };
