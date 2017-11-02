@@ -1106,23 +1106,23 @@
             obj.clearsessioncache = !obj.clearsessioncache;
         }
 
-        if([[options objectForKey:@"enableviewportscale"] boolValue] != obj.enableviewportscale) {
+        if([[options objectForKey:@"enableViewportScale"] boolValue] != obj.enableviewportscale) {
             obj.enableviewportscale = !obj.enableviewportscale;
         }
 
-        if([[options objectForKey:@"mediaplaybackrequiresuseraction"] boolValue] != obj.mediaplaybackrequiresuseraction) {
+        if([[options objectForKey:@"mediaPlaybackRequiresUserAction"] boolValue] != obj.mediaplaybackrequiresuseraction) {
             obj.mediaplaybackrequiresuseraction = !obj.mediaplaybackrequiresuseraction;
         }
 
-        if([[options objectForKey:@"allowinlinemediaplayback"] boolValue] != obj.allowinlinemediaplayback) {
+        if([[options objectForKey:@"allowInlineMediaPlayback"] boolValue] != obj.allowinlinemediaplayback) {
             obj.allowinlinemediaplayback = !obj.allowinlinemediaplayback;
         }
 
-        if([[options objectForKey:@"keyboarddisplayrequiresuseraction"] boolValue] != obj.keyboarddisplayrequiresuseraction) {
+        if([[options objectForKey:@"keyboardDisplayRequiresUserAction"] boolValue] != obj.keyboarddisplayrequiresuseraction) {
             obj.keyboarddisplayrequiresuseraction = !obj.keyboarddisplayrequiresuseraction;
         }
 
-        if([[options objectForKey:@"suppressesincrementalrendering"] boolValue] != obj.suppressesincrementalrendering) {
+        if([[options objectForKey:@"suppressesIncrementalRendering"] boolValue] != obj.suppressesincrementalrendering) {
             obj.suppressesincrementalrendering = !obj.suppressesincrementalrendering;
         }
 
