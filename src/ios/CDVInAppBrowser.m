@@ -306,6 +306,11 @@
             }
 
             [self.inAppBrowserViewController.mainWindow setFrame:parentViewBounds];
+
+            // set viewport to device width
+            float zoom = self.webView.bounds.size.width / self.webView.scrollView.contentSize.width;
+            self.webView.scrollView.minimumZoomScale = zoom;
+            self.webView.scrollView.zoomScale = zoom;
         }
     });
 }
@@ -997,6 +1002,11 @@
     if (isPDF) {
         [CDVUserAgentUtil setUserAgent:_prevUserAgent lockToken:_userAgentLockToken];
     }
+
+    // set viewport to device width
+    float zoom = theWebView.bounds.size.width / theWebView.scrollView.contentSize.width;
+    theWebView.scrollView.minimumZoomScale = zoom;
+    theWebView.scrollView.zoomScale = zoom;
 
     [self.navigationDelegate webViewDidFinishLoad:theWebView];
 }
