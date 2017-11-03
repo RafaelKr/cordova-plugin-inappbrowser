@@ -292,20 +292,20 @@
     dispatch_async(dispatch_get_main_queue(), ^{
         if (self.inAppBrowserViewController != nil) {
             CDVInAppBrowserOptions* windowFeatures = [CDVInAppBrowserOptions parseOptions:[command.arguments objectAtIndex:0]];
-            CGRect windowBounds = [[UIScreen mainScreen] bounds];
+            CGRect parentViewBounds = [[UIScreen mainScreen] bounds];
 
-            windowBounds.origin.x = 0;
-            windowBounds.origin.y = 0;
+            parentViewBounds.origin.x = 0;
+            parentViewBounds.origin.y = 0;
 
             if(windowFeatures.width != nil) {
-                windowBounds.size.width = [windowFeatures.width longLongValue];
+                parentViewBounds.size.width = [windowFeatures.width longLongValue];
             }
 
             if(windowFeatures.height != nil) {
-                windowBounds.size.height = [windowFeatures.height longLongValue];
+                parentViewBounds.size.height = [windowFeatures.height longLongValue];
             }
 
-            [self.inAppBrowserViewController.view setBounds:windowBounds];
+            [self.inAppBrowserViewController.mainWindow setFrame:parentViewBounds];
         }
     });
 }
